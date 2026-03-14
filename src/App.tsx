@@ -34,7 +34,7 @@ function DraggableCard({ card, onDelete, onEdit, onArchive }: { card: JobCard; o
       <Card 
         companyName={card.company_name} platform={card.platform} status={card.status} 
         url={card.url || undefined} deadline={card.deadline || undefined} 
-        onDelete={() => onDelete(card.id)} onEdit={() => onEdit(card)} onArchive={() => onArchive(card.id)} // 【追加】
+        onDelete={() => onDelete(card.id)} onEdit={() => onEdit(card)} onArchive={() => onArchive(card.id)}
       />
     </div>
   );
@@ -47,19 +47,19 @@ function SortableColumn({ column, cards, onDeleteCard, onEditCard, onDeleteColum
 
   const style: React.CSSProperties = {
     transform: CSS.Translate.toString(transform), transition, opacity: isDragging ? 0.5 : 1, backgroundColor: isOver ? '#f1f5f9' : '#fff',
-    padding: '32px', borderRadius: '24px', border: '1px solid #e2e8f0', width: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: '20px'
+    padding: '24px 16px', borderRadius: '24px', border: '1px solid #e2e8f0', width: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: '20px'
   };
 
   return (
     <section ref={setNodeRef} style={style}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', cursor: cards.length === 0 ? 'grab' : 'default' }} {...(cards.length === 0 ? listeners : {})} {...attributes}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: cards.length === 0 ? 'grab' : 'default', flexWrap: 'wrap' }} {...(cards.length === 0 ? listeners : {})} {...attributes}>
           <h2 style={{ fontSize: '18px', fontWeight: '900', color: '#1e293b', margin: 0 }}>{cards.length === 0 ? '⠿ ' : ''}{column}</h2>
-          <span style={{ fontSize: '13px', background: '#3b82f6', color: '#fff', padding: '4px 14px', borderRadius: '20px', fontWeight: '800' }}>{cards.length}</span>
+          <span style={{ fontSize: '12px', background: '#3b82f6', color: '#fff', padding: '4px 12px', borderRadius: '20px', fontWeight: '800' }}>{cards.length}</span>
         </div>
-        {cards.length === 0 && <button onClick={() => onDeleteColumn(column)} style={{ border: 'none', background: 'none', color: '#cbd5e1', cursor: 'pointer' }}>削除 🗑️</button>}
+        {cards.length === 0 && <button onClick={() => onDeleteColumn(column)} style={{ border: 'none', background: 'none', color: '#cbd5e1', cursor: 'pointer', fontSize: '12px', flexShrink: 0 }}>削除 🗑️</button>}
       </div>
-      <div ref={setDroppableRef} style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', minHeight: '80px' }}>
+      <div ref={setDroppableRef} style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', minHeight: '80px', justifyContent: 'center' }}>
         {cards.map((c: JobCard) => <DraggableCard key={c.id} card={c} onDelete={onDeleteCard} onEdit={onEditCard} onArchive={onArchiveCard} />)}
       </div>
     </section>
@@ -75,7 +75,6 @@ export default function App() {
   const [newStatusName, setNewStatusName] = useState('');
   const [editingCard, setEditingCard] = useState<JobCard | null>(null);
 
-  // 【追加】フィルターとアーカイブ表示用のState
   const [filterPlatform, setFilterPlatform] = useState<string>('All');
   const [showArchived, setShowArchived] = useState<boolean>(false);
 
@@ -102,7 +101,6 @@ export default function App() {
       if (crds) setCards(crds as JobCard[]);
     } catch (err: any) {
       console.error(err);
-    } finally {
     }
   };
 
@@ -166,7 +164,6 @@ export default function App() {
     }
   };
 
-  // 【追加】アーカイブ機能
   const archiveCard = async (id: number) => {
     const target = cards.find(c => c.id === id);
     const actionText = target?.is_archived ? "元に戻しますか？" : "アーカイブ（一覧から非表示）にしますか？";
@@ -180,31 +177,32 @@ export default function App() {
 
   if (!session) return <Auth />;
 
-  // 【追加】表示するカードを「フィルター」と「アーカイブ状態」で絞り込む
   const visibleCards = cards.filter(c => {
-    // アーカイブ表示モードならアーカイブ済みのみ、通常モードなら未アーカイブのみ表示
     if (showArchived ? !c.is_archived : c.is_archived) return false;
-    // 媒体フィルター
     if (filterPlatform !== 'All' && c.platform !== filterPlatform) return false;
     return true;
   });
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f8fafc', paddingBottom: '100px' }}>
-      <div style={{ position: 'fixed', top: '20px', right: '20px', display: 'flex', alignItems: 'center', gap: '12px', zIndex: 100 }}>
-        <span style={{ fontSize: '12px', color: '#64748b', backgroundColor: '#fff', padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', fontWeight: '600' }}>👤 {session.user.email}</span>
-        <button onClick={() => supabase.auth.signOut()} style={{ padding: '8px 16px', backgroundColor: '#0f172a', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>ログアウト</button>
+    <div style={{ minHeight: '100vh', backgroundColor: '#f8fafc', paddingBottom: '100px', overflowX: 'hidden' }}>
+      
+      {/* ユーザー情報（スマホでは少し小さくして重なりを防ぐ） */}
+      <div style={{ position: 'fixed', top: '12px', right: '12px', display: 'flex', alignItems: 'center', gap: '8px', zIndex: 100, flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: '80%' }}>
+        <span style={{ fontSize: '10px', color: '#64748b', backgroundColor: '#fff', padding: '6px 10px', borderRadius: '6px', border: '1px solid #e2e8f0', fontWeight: '600', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '150px' }}>
+          👤 {session.user.email}
+        </span>
+        <button onClick={() => supabase.auth.signOut()} style={{ padding: '6px 12px', backgroundColor: '#0f172a', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '10px', fontWeight: 'bold' }}>ログアウト</button>
       </div>
 
-      <header style={{ backgroundColor: '#fff', borderBottom: '1px solid #e2e8f0', padding: '40px 20px', textAlign: 'center' }}>
-        <h1 style={{ fontSize: '42px', fontWeight: '950', marginBottom: '32px' }}>Career <span style={{ color: '#3b82f6' }}>Pipeline</span></h1>
+      <header style={{ backgroundColor: '#fff', borderBottom: '1px solid #e2e8f0', padding: '60px 20px 30px', textAlign: 'center' }}>
+        <h1 style={{ fontSize: '32px', fontWeight: '950', marginBottom: '24px', wordBreak: 'break-word' }}>Career <span style={{ color: '#3b82f6' }}>Pipeline</span></h1>
         
-        {/* 【追加】フィルターとアーカイブ切り替えUI */}
-        <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginBottom: '24px' }}>
+        {/* 【修正】フィルターUIがスマホで折り返されるように flexWrap を追加 */}
+        <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginBottom: '24px', flexWrap: 'wrap' }}>
           <select 
             value={filterPlatform} 
             onChange={(e) => setFilterPlatform(e.target.value)}
-            style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #e2e8f0', fontWeight: 'bold', outline: 'none' }}
+            style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', fontWeight: 'bold', outline: 'none', fontSize: '13px', width: '100%', maxWidth: '200px' }}
           >
             <option value="All">すべての媒体</option>
             {PLATFORMS.map(p => <option key={p} value={p}>{p}</option>)}
@@ -212,35 +210,35 @@ export default function App() {
 
           <button 
             onClick={() => setShowArchived(!showArchived)}
-            style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #e2e8f0', backgroundColor: showArchived ? '#3b82f6' : '#fff', color: showArchived ? '#fff' : '#0f172a', fontWeight: 'bold', cursor: 'pointer' }}
+            style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', backgroundColor: showArchived ? '#3b82f6' : '#fff', color: showArchived ? '#fff' : '#0f172a', fontWeight: 'bold', cursor: 'pointer', fontSize: '13px', width: '100%', maxWidth: '200px' }}
           >
             {showArchived ? '📂 アーカイブ表示中' : '📦 アーカイブを見る'}
           </button>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'center' }}>
-          <form onSubmit={addCard} style={{ display: 'flex', gap: '12px' }}>
-            <input value={newCompany} onChange={(e) => setNewCompany(e.target.value)} placeholder="企業を追加..." style={{ padding: '12px 20px', borderRadius: '12px', border: '1px solid #e2e8f0', width: '300px' }} />
-            <button type="submit" style={{ padding: '0 24px', backgroundColor: '#3b82f6', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>追加</button>
+        {/* 【修正】フォームの input の width を 100% にしてスマホ枠内に収める */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center', width: '100%', maxWidth: '400px', margin: '0 auto' }}>
+          <form onSubmit={addCard} style={{ display: 'flex', gap: '8px', width: '100%' }}>
+            <input value={newCompany} onChange={(e) => setNewCompany(e.target.value)} placeholder="企業を追加..." style={{ padding: '12px 16px', borderRadius: '12px', border: '1px solid #e2e8f0', flex: 1, minWidth: 0 }} />
+            <button type="submit" style={{ padding: '0 20px', backgroundColor: '#3b82f6', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', whiteSpace: 'nowrap' }}>追加</button>
           </form>
-          <form onSubmit={addColumn} style={{ display: 'flex', gap: '12px' }}>
-            <input value={newStatusName} onChange={(e) => setNewStatusName(e.target.value)} placeholder="新しいステップ..." style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #e2e8f0', width: '300px' }} />
-            <button type="submit" style={{ padding: '0 16px', backgroundColor: '#0f172a', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>ステップ追加</button>
+          <form onSubmit={addColumn} style={{ display: 'flex', gap: '8px', width: '100%' }}>
+            <input value={newStatusName} onChange={(e) => setNewStatusName(e.target.value)} placeholder="新しいステップ..." style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #e2e8f0', flex: 1, minWidth: 0 }} />
+            <button type="submit" style={{ padding: '0 12px', backgroundColor: '#0f172a', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px', whiteSpace: 'nowrap' }}>ステップ追加</button>
           </form>
         </div>
       </header>
 
-      {/* アーカイブモード中の警告 */}
       {showArchived && (
-        <div style={{ backgroundColor: '#eff6ff', color: '#1e3a8a', padding: '12px', textAlign: 'center', fontWeight: 'bold', borderBottom: '1px solid #bfdbfe' }}>
-          現在アーカイブ（非表示）の企業のみを表示しています。カード右上の「📦」を押すと元のリストに戻ります。
+        <div style={{ backgroundColor: '#eff6ff', color: '#1e3a8a', padding: '12px', textAlign: 'center', fontWeight: 'bold', borderBottom: '1px solid #bfdbfe', fontSize: '12px' }}>
+          現在アーカイブの企業のみを表示中。<br/>カード右上の「📦」を押すと戻ります。
         </div>
       )}
 
-      <main style={{ maxWidth: '1100px', margin: '40px auto', padding: '0 20px' }}>
+      <main style={{ maxWidth: '1100px', margin: '30px auto', padding: '0 16px' }}>
         <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
           <SortableContext items={columns.map(c => `col-${c}`)} strategy={verticalListSortingStrategy}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '48px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
               {columns.map(col => (
                 <SortableColumn 
                   key={col} column={col} 
@@ -250,13 +248,12 @@ export default function App() {
                   })} 
                   onDeleteCard={async (id: number) => {
                     const target = cards.find(c => c.id === id);
-                    if (window.confirm(`${target?.company_name || 'この企業'} の企業情報を完全に削除しますか？`)) {
+                    if (window.confirm(`${target?.company_name || 'この企業'} を完全に削除しますか？`)) {
                       await supabase.from('job_cards').delete().eq('id', id);
                       setCards(cards.filter(c => c.id !== id));
                     }
                   }} 
-                  onEditCard={setEditingCard}
-                  onArchiveCard={archiveCard} // 【追加】
+                  onEditCard={setEditingCard} onArchiveCard={archiveCard} 
                   onDeleteColumn={async (name: string) => {
                     if (window.confirm(`${name} ステップを削除しますか？`)) {
                       await supabase.from('job_columns').delete().eq('name', name);
@@ -270,33 +267,35 @@ export default function App() {
         </DndContext>
       </main>
 
-      {/* 編集モーダル */}
+      {/* 編集モーダル（スマホ対応） */}
       {editingCard && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(8px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2000 }}>
-          <div style={{ backgroundColor: '#fff', padding: '40px', borderRadius: '32px', width: '92%', maxWidth: '1000px', height: '88vh', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '32px', alignItems: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <h2 style={{ margin: 0, fontWeight: '900' }}>編集: {editingCard.company_name}</h2>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', fontWeight: 'bold', color: '#64748b', cursor: 'pointer' }}>
+          <div style={{ backgroundColor: '#fff', padding: '24px', borderRadius: '24px', width: '95%', maxWidth: '800px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <h2 style={{ margin: 0, fontWeight: '900', fontSize: '20px', wordBreak: 'break-word' }}>編集: {editingCard.company_name}</h2>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 'bold', color: '#64748b', cursor: 'pointer' }}>
                   <input type="checkbox" checked={editingCard.is_archived} onChange={(e) => handleLocalEdit('is_archived', e.target.checked)} />
                   アーカイブ済みにする
                 </label>
               </div>
-              <button onClick={saveEdits} style={{ padding: '12px 32px', background: '#3b82f6', color: '#fff', borderRadius: '12px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>保存して閉じる</button>
+              <button onClick={saveEdits} style={{ padding: '10px 24px', background: '#3b82f6', color: '#fff', borderRadius: '12px', border: 'none', cursor: 'pointer', fontWeight: 'bold', width: '100%', maxWidth: '200px' }}>保存して閉じる</button>
             </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', marginBottom: '32px' }}>
-              <div style={{ flex: 1, minWidth: '200px' }}><label style={lS}>企業名</label><input value={editingCard.company_name} onChange={(e) => handleLocalEdit('company_name', e.target.value)} style={iS} /></div>
-              <div style={{ flex: 1, minWidth: '200px' }}><label style={lS}>媒体</label>
+            
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginBottom: '24px' }}>
+              <div style={{ flex: '1 1 100%' }}><label style={lS}>企業名</label><input value={editingCard.company_name} onChange={(e) => handleLocalEdit('company_name', e.target.value)} style={iS} /></div>
+              <div style={{ flex: '1 1 100%' }}><label style={lS}>媒体</label>
                 <select value={editingCard.platform} onChange={(e) => handleLocalEdit('platform', e.target.value)} style={iS}>
                   {PLATFORMS.map(p => <option key={p} value={p}>{p}</option>)}
                 </select>
               </div>
-              <div style={{ flex: 1, minWidth: '200px' }}><label style={lS}>URL</label><input value={editingCard.url || ''} onChange={(e) => handleLocalEdit('url', e.target.value)} style={iS} /></div>
-              <div style={{ flex: 1, minWidth: '200px' }}><label style={lS}>締切</label><input type="date" value={editingCard.deadline || ''} onChange={(e) => handleLocalEdit('deadline', e.target.value)} style={iS} /></div>
+              <div style={{ flex: '1 1 100%' }}><label style={lS}>URL</label><input value={editingCard.url || ''} onChange={(e) => handleLocalEdit('url', e.target.value)} style={iS} /></div>
+              <div style={{ flex: '1 1 100%' }}><label style={lS}>締切</label><input type="date" value={editingCard.deadline || ''} onChange={(e) => handleLocalEdit('deadline', e.target.value)} style={iS} /></div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px', flex: 1, overflow: 'hidden' }}>
-              <textarea value={editingCard.memo} onChange={(e) => handleLocalEdit('memo', e.target.value)} style={{ padding: '24px', borderRadius: '20px', border: '1px solid #e2e8f0', backgroundColor: '#f8fafc', resize: 'none', fontSize: '16px', lineHeight: '1.6' }} />
-              <div style={{ padding: '24px', border: '1px solid #e2e8f0', borderRadius: '20px', overflowY: 'auto' }}><ReactMarkdown>{editingCard.memo || "*メモは空です*"}</ReactMarkdown></div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', flex: 1 }}>
+              <textarea value={editingCard.memo} onChange={(e) => handleLocalEdit('memo', e.target.value)} style={{ padding: '16px', borderRadius: '16px', border: '1px solid #e2e8f0', backgroundColor: '#f8fafc', resize: 'vertical', minHeight: '150px', fontSize: '14px', lineHeight: '1.6', boxSizing: 'border-box' }} />
+              <div style={{ padding: '16px', border: '1px solid #e2e8f0', borderRadius: '16px', overflowY: 'auto', minHeight: '100px', fontSize: '14px', boxSizing: 'border-box' }}><ReactMarkdown>{editingCard.memo || "*メモは空です*"}</ReactMarkdown></div>
             </div>
           </div>
         </div>

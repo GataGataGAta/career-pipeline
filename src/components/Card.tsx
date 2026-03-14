@@ -1,6 +1,4 @@
 // src/components/Card.tsx
-import React from 'react';
-
 type CardProps = {
   companyName: string;
   platform: string;

@@ -74,7 +74,6 @@ export default function App() {
   const [newCompany, setNewCompany] = useState('');
   const [newStatusName, setNewStatusName] = useState('');
   const [editingCard, setEditingCard] = useState<JobCard | null>(null);
-  const [loading, setLoading] = useState(true);
 
   // 【追加】フィルターとアーカイブ表示用のState
   const [filterPlatform, setFilterPlatform] = useState<string>('All');
@@ -90,7 +89,6 @@ export default function App() {
 
   const fetchData = async (currentUserId: string) => {
     try {
-      setLoading(true);
       let { data: cols } = await supabase.from('job_columns').select('name').order('position');
       if (!cols || cols.length === 0) {
         const seedData = INITIAL_STAGES.map((name, index) => ({ name, position: index + 1, user_id: currentUserId }));
@@ -105,7 +103,6 @@ export default function App() {
     } catch (err: any) {
       console.error(err);
     } finally {
-      setLoading(false);
     }
   };
 

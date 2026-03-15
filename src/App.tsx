@@ -9,7 +9,6 @@ import { Card } from './components/Card';
 import Auth from './Auth';
 import type { Session } from '@supabase/supabase-js';
 
-// 【修正】is_archived を追加
 interface JobCard {
   id: number;
   company_name: string;
@@ -27,7 +26,17 @@ const INITIAL_STAGES = ['スカウト・応募前', '書類選考', '1次面接'
 // --- ① ドラッグ用カード ---
 function DraggableCard({ card, onDelete, onEdit, onArchive }: { card: JobCard; onDelete: (id: number) => void; onEdit: (card: JobCard) => void; onArchive: (id: number) => void; }) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: `card-${card.id}`, data: { type: 'card', card } });
-  const style = transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, zIndex: 1000, cursor: 'grabbing' } : undefined;
+  
+  // スマホでのテキスト選択と長押しメニュー、スクロール干渉を完全に防ぐスタイル
+  const style: React.CSSProperties = {
+    transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
+    zIndex: transform ? 1000 : 1,
+    cursor: transform ? 'grabbing' : 'grab',
+    touchAction: 'none',
+    WebkitUserSelect: 'none',
+    userSelect: 'none',
+    WebkitTouchCallout: 'none',
+  };
 
   return (
     <div ref={setNodeRef} style={style} {...listeners} {...attributes}>
@@ -78,6 +87,7 @@ export default function App() {
   const [filterPlatform, setFilterPlatform] = useState<string>('All');
   const [showArchived, setShowArchived] = useState<boolean>(false);
 
+  // スマホのドラッグをスムーズにするセンサー設定
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   useEffect(() => {
@@ -184,9 +194,8 @@ export default function App() {
   });
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f8fafc', paddingBottom: '100px', overflowX: 'hidden' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: '#f8fafc', paddingBottom: '100px', overflowX: 'hidden', color: '#0f172a' }}>
       
-      {/* ユーザー情報（スマホでは少し小さくして重なりを防ぐ） */}
       <div style={{ position: 'fixed', top: '12px', right: '12px', display: 'flex', alignItems: 'center', gap: '8px', zIndex: 100, flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: '80%' }}>
         <span style={{ fontSize: '10px', color: '#64748b', backgroundColor: '#fff', padding: '6px 10px', borderRadius: '6px', border: '1px solid #e2e8f0', fontWeight: '600', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '150px' }}>
           👤 {session.user.email}
@@ -195,14 +204,13 @@ export default function App() {
       </div>
 
       <header style={{ backgroundColor: '#fff', borderBottom: '1px solid #e2e8f0', padding: '60px 20px 30px', textAlign: 'center' }}>
-        <h1 style={{ fontSize: '32px', fontWeight: '950', marginBottom: '24px', wordBreak: 'break-word' }}>Career <span style={{ color: '#3b82f6' }}>Pipeline</span></h1>
+        <h1 style={{ fontSize: '32px', fontWeight: '950', marginBottom: '24px', wordBreak: 'break-word', color: '#0f172a' }}>Career <span style={{ color: '#3b82f6' }}>Pipeline</span></h1>
         
-        {/* 【修正】フィルターUIがスマホで折り返されるように flexWrap を追加 */}
         <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginBottom: '24px', flexWrap: 'wrap' }}>
           <select 
             value={filterPlatform} 
             onChange={(e) => setFilterPlatform(e.target.value)}
-            style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', fontWeight: 'bold', outline: 'none', fontSize: '13px', width: '100%', maxWidth: '200px' }}
+            style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', fontWeight: 'bold', outline: 'none', fontSize: '13px', width: '100%', maxWidth: '200px', backgroundColor: '#fff', color: '#0f172a' }}
           >
             <option value="All">すべての媒体</option>
             {PLATFORMS.map(p => <option key={p} value={p}>{p}</option>)}
@@ -216,14 +224,13 @@ export default function App() {
           </button>
         </div>
 
-        {/* 【修正】フォームの input の width を 100% にしてスマホ枠内に収める */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center', width: '100%', maxWidth: '400px', margin: '0 auto' }}>
           <form onSubmit={addCard} style={{ display: 'flex', gap: '8px', width: '100%' }}>
-            <input value={newCompany} onChange={(e) => setNewCompany(e.target.value)} placeholder="企業を追加..." style={{ padding: '12px 16px', borderRadius: '12px', border: '1px solid #e2e8f0', flex: 1, minWidth: 0 }} />
+            <input value={newCompany} onChange={(e) => setNewCompany(e.target.value)} placeholder="企業を追加..." style={{ padding: '12px 16px', borderRadius: '12px', border: '1px solid #e2e8f0', flex: 1, minWidth: 0, backgroundColor: '#fff', color: '#0f172a' }} />
             <button type="submit" style={{ padding: '0 20px', backgroundColor: '#3b82f6', color: '#fff', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', whiteSpace: 'nowrap' }}>追加</button>
           </form>
           <form onSubmit={addColumn} style={{ display: 'flex', gap: '8px', width: '100%' }}>
-            <input value={newStatusName} onChange={(e) => setNewStatusName(e.target.value)} placeholder="新しいステップ..." style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #e2e8f0', flex: 1, minWidth: 0 }} />
+            <input value={newStatusName} onChange={(e) => setNewStatusName(e.target.value)} placeholder="新しいステップ..." style={{ padding: '8px 16px', borderRadius: '8px', border: '1px solid #e2e8f0', flex: 1, minWidth: 0, backgroundColor: '#fff', color: '#0f172a' }} />
             <button type="submit" style={{ padding: '0 12px', backgroundColor: '#0f172a', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '12px', whiteSpace: 'nowrap' }}>ステップ追加</button>
           </form>
         </div>
@@ -267,13 +274,13 @@ export default function App() {
         </DndContext>
       </main>
 
-      {/* 編集モーダル（スマホ対応） */}
+      {/* 編集モーダル */}
       {editingCard && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(8px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2000 }}>
           <div style={{ backgroundColor: '#fff', padding: '24px', borderRadius: '24px', width: '95%', maxWidth: '800px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <h2 style={{ margin: 0, fontWeight: '900', fontSize: '20px', wordBreak: 'break-word' }}>編集: {editingCard.company_name}</h2>
+                <h2 style={{ margin: 0, fontWeight: '900', fontSize: '20px', wordBreak: 'break-word', color: '#0f172a' }}>編集: {editingCard.company_name}</h2>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 'bold', color: '#64748b', cursor: 'pointer' }}>
                   <input type="checkbox" checked={editingCard.is_archived} onChange={(e) => handleLocalEdit('is_archived', e.target.checked)} />
                   アーカイブ済みにする
@@ -294,8 +301,8 @@ export default function App() {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', flex: 1 }}>
-              <textarea value={editingCard.memo} onChange={(e) => handleLocalEdit('memo', e.target.value)} style={{ padding: '16px', borderRadius: '16px', border: '1px solid #e2e8f0', backgroundColor: '#f8fafc', resize: 'vertical', minHeight: '150px', fontSize: '14px', lineHeight: '1.6', boxSizing: 'border-box' }} />
-              <div style={{ padding: '16px', border: '1px solid #e2e8f0', borderRadius: '16px', overflowY: 'auto', minHeight: '100px', fontSize: '14px', boxSizing: 'border-box' }}><ReactMarkdown>{editingCard.memo || "*メモは空です*"}</ReactMarkdown></div>
+              <textarea value={editingCard.memo} onChange={(e) => handleLocalEdit('memo', e.target.value)} style={{ padding: '16px', borderRadius: '16px', border: '1px solid #e2e8f0', backgroundColor: '#f8fafc', color: '#0f172a', resize: 'vertical', minHeight: '150px', fontSize: '14px', lineHeight: '1.6', boxSizing: 'border-box' }} />
+              <div style={{ padding: '16px', border: '1px solid #e2e8f0', borderRadius: '16px', overflowY: 'auto', minHeight: '100px', fontSize: '14px', boxSizing: 'border-box', backgroundColor: '#fff', color: '#0f172a' }}><ReactMarkdown>{editingCard.memo || "*メモは空です*"}</ReactMarkdown></div>
             </div>
           </div>
         </div>
@@ -305,4 +312,4 @@ export default function App() {
 }
 
 const lS = { fontSize: '11px', fontWeight: 'bold' as const, color: '#94a3b8', display: 'block', marginBottom: '4px', textTransform: 'uppercase' as const };
-const iS = { width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0', boxSizing: 'border-box' as const };
+const iS = { width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0', boxSizing: 'border-box' as const, backgroundColor: '#fff', color: '#0f172a' };

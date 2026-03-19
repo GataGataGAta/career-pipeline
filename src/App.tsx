@@ -51,7 +51,8 @@ function DraggableCard({ card, onDelete, onEdit, onArchive }: { card: JobCard; o
 
 // --- ② ソート可能カラム ---
 function SortableColumn({ column, cards, onDeleteCard, onEditCard, onDeleteColumn, onArchiveCard }: any) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: `col-${column}`, data: { type: 'column', column }, disabled: cards.length > 0 });
+  // 【修正】カードがあってもカラムを動かせるように disabled 設定を削除
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: `col-${column}`, data: { type: 'column', column } });
   const { setNodeRef: setDroppableRef, isOver } = useDroppable({ id: column });
 
   const style: React.CSSProperties = {
@@ -63,23 +64,30 @@ function SortableColumn({ column, cards, onDeleteCard, onEditCard, onDeleteColum
     <section ref={setNodeRef} style={style}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         
-        {/* ステップの長押しテキスト選択を防止 */}
+        {/* ステップの長押しテキスト選択を完全に防止し、常に掴めるように変更 */}
         <div 
           style={{ 
             display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap',
-            cursor: cards.length === 0 ? 'grab' : 'default',
-            touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none', WebkitTouchCallout: 'none'
+            cursor: 'grab', // 常に掴むカーソルに
+            touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none', WebkitTouchCallout: 'none',
           }} 
-          {...(cards.length === 0 ? listeners : {})} 
+          {...listeners} // リスナーは常にバインド
           {...attributes}
         >
-          <h2 style={{ fontSize: '18px', fontWeight: '900', color: '#1e293b', margin: 0 }}>{cards.length === 0 ? '⠿ ' : ''}{column}</h2>
+          <h2 style={{ fontSize: '18px', fontWeight: '900', color: '#1e293b', margin: 0 }}>{column}</h2>
           <span style={{ fontSize: '12px', background: '#3b82f6', color: '#fff', padding: '4px 12px', borderRadius: '20px', fontWeight: '800' }}>{cards.length}</span>
         </div>
         
         {cards.length === 0 && <button onClick={() => onDeleteColumn(column)} style={{ border: 'none', background: 'none', color: '#cbd5e1', cursor: 'pointer', fontSize: '12px', flexShrink: 0 }}>削除 🗑️</button>}
       </div>
-      <div ref={setDroppableRef} style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', minHeight: '80px', justifyContent: 'center' }}>
+      
+      {/* 【修正】ここが企業のカードを置くフィールド（ドロップエリア）です。
+          ここ全体に対して、テキスト選択と長押しメニュー、スクロール干渉を防止するCSSを追加しました。 */}
+      <div ref={setDroppableRef} style={{ 
+        display: 'flex', flexWrap: 'wrap', gap: '20px', minHeight: '80px', justifyContent: 'center',
+        // ▼ ここから下がスマホ用・タッチ操作用の特効薬です ▼
+        touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none', WebkitTouchCallout: 'none'
+      }}>
         {cards.map((c: JobCard) => <DraggableCard key={c.id} card={c} onDelete={onDeleteCard} onEdit={onEditCard} onArchive={onArchiveCard} />)}
       </div>
     </section>

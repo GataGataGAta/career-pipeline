@@ -27,6 +27,7 @@ const INITIAL_STAGES = ['スカウト・応募前', '書類選考', '1次面接'
 function DraggableCard({ card, onDelete, onEdit, onArchive }: { card: JobCard; onDelete: (id: number) => void; onEdit: (card: JobCard) => void; onArchive: (id: number) => void; }) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: `card-${card.id}`, data: { type: 'card', card } });
   
+  // スマホでのテキスト選択と長押しメニュー、スクロール干渉を完全に防ぐスタイル
   const style: React.CSSProperties = {
     transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
     zIndex: transform ? 1000 : 1,
@@ -61,10 +62,21 @@ function SortableColumn({ column, cards, onDeleteCard, onEditCard, onDeleteColum
   return (
     <section ref={setNodeRef} style={style}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: cards.length === 0 ? 'grab' : 'default', flexWrap: 'wrap' }} {...(cards.length === 0 ? listeners : {})} {...attributes}>
+        
+        {/* ステップの長押しテキスト選択を防止 */}
+        <div 
+          style={{ 
+            display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap',
+            cursor: cards.length === 0 ? 'grab' : 'default',
+            touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none', WebkitTouchCallout: 'none'
+          }} 
+          {...(cards.length === 0 ? listeners : {})} 
+          {...attributes}
+        >
           <h2 style={{ fontSize: '18px', fontWeight: '900', color: '#1e293b', margin: 0 }}>{cards.length === 0 ? '⠿ ' : ''}{column}</h2>
           <span style={{ fontSize: '12px', background: '#3b82f6', color: '#fff', padding: '4px 12px', borderRadius: '20px', fontWeight: '800' }}>{cards.length}</span>
         </div>
+        
         {cards.length === 0 && <button onClick={() => onDeleteColumn(column)} style={{ border: 'none', background: 'none', color: '#cbd5e1', cursor: 'pointer', fontSize: '12px', flexShrink: 0 }}>削除 🗑️</button>}
       </div>
       <div ref={setDroppableRef} style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', minHeight: '80px', justifyContent: 'center' }}>
@@ -86,6 +98,7 @@ export default function App() {
   const [filterPlatform, setFilterPlatform] = useState<string>('All');
   const [showArchived, setShowArchived] = useState<boolean>(false);
 
+  // スマホのドラッグをスムーズにするセンサー設定
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   useEffect(() => {
@@ -118,25 +131,18 @@ export default function App() {
     const { active, over } = event;
     if (!over) return;
     
-    // 【修正】カラム（ステップ）を並び替えた時の処理
+    // カラム（ステップ）を並び替えた時の処理
     if (active.data.current?.type === 'column' && active.id !== over.id) {
       const oldIndex = columns.indexOf(active.data.current.column);
       const newIndex = columns.indexOf((over.data.current as any).column);
-      
-      // 新しい順番の配列を作成
       const newColumns = arrayMove(columns, oldIndex, newIndex);
       
-      // 1. まず画面の見た目を一瞬で更新する
       setColumns(newColumns);
       
-      // 2. その後、Supabaseデータベースの `position` を新しい順にすべて書き換える
+      // Supabaseに並び順を保存
       if (session?.user?.id) {
         Promise.all(newColumns.map((colName, index) => 
-          supabase
-            .from('job_columns')
-            .update({ position: index + 1 }) // 1始まりで順番を保存
-            .eq('name', colName)
-            .eq('user_id', session.user.id)
+          supabase.from('job_columns').update({ position: index + 1 }).eq('name', colName).eq('user_id', session.user.id)
         )).catch(err => console.error("並び順の保存に失敗しました:", err));
       }
       return;
@@ -211,6 +217,7 @@ export default function App() {
   });
 
   return (
+    // ダークモードの文字色反転を防ぐ
     <div style={{ minHeight: '100vh', backgroundColor: '#f8fafc', paddingBottom: '100px', overflowX: 'hidden', color: '#0f172a' }}>
       
       <div style={{ position: 'fixed', top: '12px', right: '12px', display: 'flex', alignItems: 'center', gap: '8px', zIndex: 100, flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: '80%' }}>

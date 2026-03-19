@@ -27,7 +27,6 @@ const INITIAL_STAGES = ['スカウト・応募前', '書類選考', '1次面接'
 function DraggableCard({ card, onDelete, onEdit, onArchive }: { card: JobCard; onDelete: (id: number) => void; onEdit: (card: JobCard) => void; onArchive: (id: number) => void; }) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({ id: `card-${card.id}`, data: { type: 'card', card } });
   
-  // スマホでのテキスト選択と長押しメニュー、スクロール干渉を完全に防ぐスタイル
   const style: React.CSSProperties = {
     transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
     zIndex: transform ? 1000 : 1,
@@ -87,7 +86,6 @@ export default function App() {
   const [filterPlatform, setFilterPlatform] = useState<string>('All');
   const [showArchived, setShowArchived] = useState<boolean>(false);
 
-  // スマホのドラッグをスムーズにするセンサー設定
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   useEffect(() => {
@@ -119,12 +117,31 @@ export default function App() {
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over) return;
+    
+    // 【修正】カラム（ステップ）を並び替えた時の処理
     if (active.data.current?.type === 'column' && active.id !== over.id) {
       const oldIndex = columns.indexOf(active.data.current.column);
       const newIndex = columns.indexOf((over.data.current as any).column);
-      setColumns(arrayMove(columns, oldIndex, newIndex));
+      
+      // 新しい順番の配列を作成
+      const newColumns = arrayMove(columns, oldIndex, newIndex);
+      
+      // 1. まず画面の見た目を一瞬で更新する
+      setColumns(newColumns);
+      
+      // 2. その後、Supabaseデータベースの `position` を新しい順にすべて書き換える
+      if (session?.user?.id) {
+        Promise.all(newColumns.map((colName, index) => 
+          supabase
+            .from('job_columns')
+            .update({ position: index + 1 }) // 1始まりで順番を保存
+            .eq('name', colName)
+            .eq('user_id', session.user.id)
+        )).catch(err => console.error("並び順の保存に失敗しました:", err));
+      }
       return;
     }
+    
     if (active.data.current?.type === 'card') {
       const draggedId = active.data.current.card.id;
       const overId = over.id.toString().replace('col-', '');

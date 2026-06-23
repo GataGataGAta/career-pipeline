@@ -1,4 +1,6 @@
 // src/components/Card.tsx
+import { formatDeadlineLabel, parseDeadline } from '../utils/deadline';
+
 type CardProps = {
   companyName: string;
   platform: string;
@@ -14,14 +16,25 @@ export const Card = ({ companyName, platform, status, url, deadline, onDelete, o
 
   const getDeadlineStyle = () => {
     if (!deadline) return { color: '#64748b', text: '設定なし' };
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const dDate = new Date(deadline);
-    const diffDays = Math.ceil((dDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
-    if (diffDays < 0) return { color: '#ef4444', text: `⚠️ 期限切れ (${deadline})` };
-    if (diffDays <= 3) return { color: '#f97316', text: `⏳ あと${diffDays}日 (${deadline})` };
-    return { color: '#64748b', text: `📅 締切: ${deadline}` };
+    const deadlineDate = parseDeadline(deadline);
+    const label = formatDeadlineLabel(deadline);
+    if (!deadlineDate) return { color: '#64748b', text: `📅 締切: ${label}` };
+
+    const now = new Date();
+    const diffMs = deadlineDate.getTime() - now.getTime();
+    if (diffMs < 0) return { color: '#ef4444', text: `⚠️ 期限切れ (${label})` };
+
+    const diffMinutes = Math.ceil(diffMs / (1000 * 60));
+    if (diffMinutes <= 60) return { color: '#f97316', text: `⏳ あと${diffMinutes}分 (${label})` };
+
+    const diffHours = Math.ceil(diffMs / (1000 * 60 * 60));
+    if (diffHours <= 24) return { color: '#f97316', text: `⏳ あと${diffHours}時間 (${label})` };
+
+    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    if (diffDays <= 3) return { color: '#f97316', text: `⏳ あと${diffDays}日 (${label})` };
+
+    return { color: '#64748b', text: `📅 締切: ${label}` };
   };
 
   const getPlatformColors = (p: string) => {
@@ -44,47 +57,38 @@ export const Card = ({ companyName, platform, status, url, deadline, onDelete, o
       border: '1px solid #e5e7eb', borderRadius: '16px', padding: '20px',
       backgroundColor: '#ffffff', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
       width: '300px', position: 'relative',
-      paddingTop: '56px', // 上部のボタンとタグのためのスペースを確保
       borderTop: `5px solid ${pColor.text}`, boxSizing: 'border-box',
-      textAlign: 'center' // 全体を中央揃えにして画像のレイアウトに合わせる
+      textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '16px'
     }}>
 
-      {/* 左上のメモ・リンクボタン */}
-      <div style={{ position: 'absolute', top: '12px', left: '12px', display: 'flex', gap: '8px' }}>
-        <button onClick={onEdit} style={btnStyle}>📝 メモ</button>
-        {url && <a href={url} target="_blank" rel="noreferrer" style={linkStyle}>🌐 リンク</a>}
-      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px', width: '100%' }}>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', minWidth: 0 }}>
+          <button onClick={onEdit} style={btnStyle}>📝 メモ</button>
+          {url && <a href={url} target="_blank" rel="noreferrer" style={linkStyle}>🌐 リンク</a>}
+        </div>
 
-      {/* 【修正】右上に媒体タグ、アーカイブ、削除ボタンを配置 */}
-      <div style={{
-        position: 'absolute',
-        top: '12px',
-        right: '12px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '6px',
-        flexWrap: 'wrap',    // 追加：要素が多くなった時に折り返す
-        justifyContent: 'flex-end', // 折り返した際に右寄せに
-        maxWidth: '140px'    // 追加：企業名領域を侵食しないよう最大幅を制限
-      }}>
-        <span style={{
-          backgroundColor: pColor.bg, color: pColor.text, border: `1px solid ${pColor.border}`,
-          padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '800'
-        }}>
-          {platform || '未設定'}
-        </span>
-        <div style={{ display: 'flex', gap: '4px' }}>
-          <button onClick={onArchive} style={arcStyle} title="アーカイブ（隠す）">📦</button>
-          <button onClick={onDelete} style={delStyle} title="完全に削除">🗑️</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', justifyContent: 'flex-end', minWidth: 0, maxWidth: '160px' }}>
+          <span style={{
+            backgroundColor: pColor.bg, color: pColor.text, border: `1px solid ${pColor.border}`,
+            padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '800',
+            maxWidth: '100%', overflowWrap: 'anywhere', lineHeight: '1.4'
+          }}>
+            {platform || '未設定'}
+          </span>
+          <div style={{ display: 'flex', gap: '4px' }}>
+            <button onClick={onArchive} style={arcStyle} title="アーカイブ（隠す）">📦</button>
+            <button onClick={onDelete} style={delStyle} title="完全に削除">🗑️</button>
+          </div>
         </div>
       </div>
+
       {/* 企業名（中央） */}
-      <h3 style={{ margin: '0 0 20px 0', fontSize: '20px', fontWeight: '900', color: '#0f172a', wordBreak: 'break-word', lineHeight: '1.3' }}>
+      <h3 style={{ margin: '0', fontSize: '20px', fontWeight: '900', color: '#0f172a', wordBreak: 'break-word', overflowWrap: 'anywhere', lineHeight: '1.35', maxWidth: '100%' }}>
         {companyName}
       </h3>
 
       {/* 締切表示（中央） */}
-      <div style={{ marginBottom: '20px', fontSize: '13px', color: dlStyle.color, fontWeight: 'bold' }}>
+      <div style={{ fontSize: '13px', color: dlStyle.color, fontWeight: 'bold', lineHeight: '1.5', overflowWrap: 'anywhere' }}>
         {dlStyle.text}
       </div>
 

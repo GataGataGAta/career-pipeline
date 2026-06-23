@@ -7,6 +7,7 @@ import ReactMarkdown from 'react-markdown';
 import { supabase } from './supabaseClient';
 import { Card } from './components/Card';
 import Auth from './Auth';
+import { toDatetimeLocalValue, toDeadlineTimestamp } from './utils/deadline';
 import type { Session } from '@supabase/supabase-js';
 
 interface JobCard {
@@ -172,7 +173,7 @@ export default function App() {
     const newCard: JobCard = { 
       id: Date.now(), company_name: newCompany, status: columns[0], 
       platform: filterPlatform !== 'All' ? filterPlatform : 'LabBase', 
-      memo: '', url: '', deadline: '', is_archived: false,
+      memo: '', url: '', deadline: null, is_archived: false,
       // @ts-ignore
       user_id: session.user.id 
     };
@@ -187,7 +188,7 @@ export default function App() {
     if (!error) { setColumns([...columns, newStatusName]); setNewStatusName(''); }
   };
 
-  const handleLocalEdit = (key: keyof JobCard, value: string | boolean) => {
+  const handleLocalEdit = (key: keyof JobCard, value: string | boolean | null) => {
     if (!editingCard) return;
     setEditingCard({ ...editingCard, [key]: value });
   };
@@ -196,11 +197,11 @@ export default function App() {
     if (!editingCard) return;
     const { error } = await supabase.from('job_cards').update({
       company_name: editingCard.company_name, platform: editingCard.platform,
-      url: editingCard.url, deadline: editingCard.deadline, memo: editingCard.memo, is_archived: editingCard.is_archived
+      url: editingCard.url, deadline: editingCard.deadline || null, memo: editingCard.memo, is_archived: editingCard.is_archived
     }).eq('id', editingCard.id);
 
     if (!error) {
-      setCards(cards.map((c) => (c.id === editingCard.id ? editingCard : c)));
+      setCards(cards.map((c) => (c.id === editingCard.id ? { ...editingCard, deadline: editingCard.deadline || null } : c)));
       setEditingCard(null);
     }
   };
@@ -283,7 +284,7 @@ export default function App() {
                   key={col} column={col} 
                   cards={visibleCards.filter((c: JobCard) => c.status === col).sort((a: JobCard, b: JobCard) => {
                     if (!a.deadline) return 1; if (!b.deadline) return -1;
-                    return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+                    return toDeadlineTimestamp(a.deadline) - toDeadlineTimestamp(b.deadline);
                   })} 
                   onDeleteCard={async (id: number) => {
                     const target = cards.find(c => c.id === id);
@@ -329,7 +330,7 @@ export default function App() {
                 </select>
               </div>
               <div style={{ flex: '1 1 100%' }}><label style={lS}>URL</label><input value={editingCard.url || ''} onChange={(e) => handleLocalEdit('url', e.target.value)} style={iS} /></div>
-              <div style={{ flex: '1 1 100%' }}><label style={lS}>締切</label><input type="date" value={editingCard.deadline || ''} onChange={(e) => handleLocalEdit('deadline', e.target.value)} style={iS} /></div>
+              <div style={{ flex: '1 1 100%' }}><label style={lS}>締切日時</label><input type="datetime-local" value={toDatetimeLocalValue(editingCard.deadline)} onChange={(e) => handleLocalEdit('deadline', e.target.value || null)} style={iS} /></div>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', flex: 1 }}>

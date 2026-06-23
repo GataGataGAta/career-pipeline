@@ -1,5 +1,5 @@
 // src/components/Card.tsx
-import { formatDeadlineLabel, parseDeadline } from '../utils/deadline';
+import { formatDeadlineLabel, formatRelativeDeadlineLabel, parseDeadline } from '../utils/deadline';
 
 type CardProps = {
   companyName: string;
@@ -19,6 +19,7 @@ export const Card = ({ companyName, platform, status, url, deadline, onDelete, o
 
     const deadlineDate = parseDeadline(deadline);
     const label = formatDeadlineLabel(deadline);
+    const relativeLabel = formatRelativeDeadlineLabel(deadline);
     if (!deadlineDate) return { color: '#64748b', text: `📅 締切: ${label}` };
 
     const now = new Date();
@@ -28,11 +29,7 @@ export const Card = ({ companyName, platform, status, url, deadline, onDelete, o
     const diffMinutes = Math.ceil(diffMs / (1000 * 60));
     if (diffMinutes <= 60) return { color: '#f97316', text: `⏳ あと${diffMinutes}分 (${label})` };
 
-    const diffHours = Math.ceil(diffMs / (1000 * 60 * 60));
-    if (diffHours <= 24) return { color: '#f97316', text: `⏳ あと${diffHours}時間 (${label})` };
-
-    const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-    if (diffDays <= 3) return { color: '#f97316', text: `⏳ あと${diffDays}日 (${label})` };
+    if (relativeLabel) return { color: '#f97316', text: `⏳ ${relativeLabel} (${label})` };
 
     return { color: '#64748b', text: `📅 締切: ${label}` };
   };

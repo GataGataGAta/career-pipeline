@@ -7,7 +7,7 @@ import ReactMarkdown from 'react-markdown';
 import { supabase } from './supabaseClient';
 import { Card } from './components/Card';
 import Auth from './Auth';
-import { toDatetimeLocalValue, toDeadlineTimestamp } from './utils/deadline';
+import { formatDeadlineLabel, getCalendarDayDiff, getLocalDateKey, toDatetimeLocalValue, toDeadlineTimestamp } from './utils/deadline';
 import type { Session } from '@supabase/supabase-js';
 
 interface JobCard {
@@ -23,6 +23,43 @@ interface JobCard {
 
 const PLATFORMS = ['LabBase', 'OfferBox', 'アカリク', 'サポーターズ', 'リクナビ/マイナビ', '直接応募', 'その他'];
 const INITIAL_STAGES = ['スカウト・応募前', '書類選考', '1次面接', '最終面接', '内定'];
+const DEADLINE_ALERT_STORAGE_KEY = 'career-pipeline-deadline-alerts-v1';
+
+const getNotificationPermission = (): NotificationPermission | 'unsupported' => {
+  if (typeof window === 'undefined' || !('Notification' in window)) return 'unsupported';
+  return Notification.permission;
+};
+
+const readDeadlineAlertKeys = () => {
+  try {
+    const raw = window.localStorage.getItem(DEADLINE_ALERT_STORAGE_KEY);
+    if (!raw) return new Set<string>();
+
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return new Set<string>();
+
+    return new Set(parsed.filter((key): key is string => typeof key === 'string'));
+  } catch (error) {
+    console.warn('通知履歴の読み込みに失敗しました:', error);
+    return new Set<string>();
+  }
+};
+
+const saveDeadlineAlertKeys = (keys: Set<string>) => {
+  try {
+    window.localStorage.setItem(DEADLINE_ALERT_STORAGE_KEY, JSON.stringify([...keys].slice(-500)));
+  } catch (error) {
+    console.warn('通知履歴の保存に失敗しました:', error);
+  }
+};
+
+const getDeadlineAlertKey = (card: JobCard, todayKey: string) => {
+  return `${todayKey}:${card.id}:${card.deadline || ''}`;
+};
+
+const buildDeadlineAlertBody = (cards: JobCard[]) => {
+  return cards.map((card) => `${card.company_name}: ${formatDeadlineLabel(card.deadline)}`).join('\n');
+};
 
 // --- ① ドラッグ用カード ---
 function DraggableCard({ card, onDelete, onEdit, onArchive }: { card: JobCard; onDelete: (id: number) => void; onEdit: (card: JobCard) => void; onArchive: (id: number) => void; }) {
@@ -106,6 +143,7 @@ export default function App() {
 
   const [filterPlatform, setFilterPlatform] = useState<string>('All');
   const [showArchived, setShowArchived] = useState<boolean>(false);
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | 'unsupported'>(() => getNotificationPermission());
 
   // スマホのドラッグをスムーズにするセンサー設定
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
@@ -135,6 +173,37 @@ export default function App() {
   };
 
   useEffect(() => { if (session?.user?.id) fetchData(session.user.id); }, [session]);
+
+  useEffect(() => {
+    if (!session) return;
+
+    const todayKey = getLocalDateKey(new Date());
+    const sentKeys = readDeadlineAlertKeys();
+    const pendingCards = cards.filter((card) => (
+      !card.is_archived &&
+      getCalendarDayDiff(card.deadline) === 1 &&
+      !sentKeys.has(getDeadlineAlertKey(card, todayKey))
+    ));
+
+    if (pendingCards.length === 0) return;
+
+    const title = pendingCards.length === 1 ? '明日の就活予定' : `明日の就活予定が${pendingCards.length}件あります`;
+    const body = buildDeadlineAlertBody(pendingCards);
+
+    if ('Notification' in window && Notification.permission === 'granted') {
+      try {
+        new Notification(title, { body });
+      } catch (error) {
+        console.warn('ブラウザ通知の送信に失敗しました:', error);
+        window.alert(`${title}\n${body}`);
+      }
+    } else {
+      window.alert(`${title}\n${body}`);
+    }
+
+    pendingCards.forEach((card) => sentKeys.add(getDeadlineAlertKey(card, todayKey)));
+    saveDeadlineAlertKeys(sentKeys);
+  }, [cards, session]);
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
@@ -217,6 +286,12 @@ export default function App() {
     }
   };
 
+  const requestDeadlineNotifications = async () => {
+    if (!('Notification' in window)) return;
+    const permission = await Notification.requestPermission();
+    setNotificationPermission(permission);
+  };
+
   if (!session) return <Auth />;
 
   const visibleCards = cards.filter(c => {
@@ -255,6 +330,16 @@ export default function App() {
           >
             {showArchived ? '📂 アーカイブ表示中' : '📦 アーカイブを見る'}
           </button>
+
+          {notificationPermission !== 'unsupported' && notificationPermission !== 'granted' && (
+            <button
+              onClick={requestDeadlineNotifications}
+              disabled={notificationPermission === 'denied'}
+              style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', backgroundColor: notificationPermission === 'denied' ? '#f1f5f9' : '#fff', color: notificationPermission === 'denied' ? '#94a3b8' : '#0f172a', fontWeight: 'bold', cursor: notificationPermission === 'denied' ? 'not-allowed' : 'pointer', fontSize: '13px', width: '100%', maxWidth: '200px' }}
+            >
+              {notificationPermission === 'denied' ? '🔕 通知ブロック中' : '🔔 通知を許可'}
+            </button>
+          )}
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', alignItems: 'center', width: '100%', maxWidth: '400px', margin: '0 auto' }}>
@@ -283,6 +368,7 @@ export default function App() {
                 <SortableColumn 
                   key={col} column={col} 
                   cards={visibleCards.filter((c: JobCard) => c.status === col).sort((a: JobCard, b: JobCard) => {
+                    if (!a.deadline && !b.deadline) return 0;
                     if (!a.deadline) return 1; if (!b.deadline) return -1;
                     return toDeadlineTimestamp(a.deadline) - toDeadlineTimestamp(b.deadline);
                   })} 

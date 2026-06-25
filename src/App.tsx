@@ -8,6 +8,7 @@ import { supabase } from './supabaseClient';
 import { Card } from './components/Card';
 import Auth from './Auth';
 import { formatDeadlineLabel, getCalendarDayDiff, getLocalDateKey, toDatetimeLocalValue, toDeadlineTimestamp } from './utils/deadline';
+import { DEFAULT_EVENT_TYPE, EVENT_TYPES, getEventTypeColor, normalizeEventType, type JobEventType } from './utils/eventTypes';
 import type { Session } from '@supabase/supabase-js';
 
 interface JobCard {
@@ -19,11 +20,13 @@ interface JobCard {
   url: string | null;
   deadline: string | null;
   is_archived: boolean;
+  event_type?: JobEventType | null;
 }
 
 const PLATFORMS = ['LabBase', 'OfferBox', 'アカリク', 'サポーターズ', 'リクナビ/マイナビ', '直接応募', 'その他'];
 const INITIAL_STAGES = ['スカウト・応募前', '書類選考', '1次面接', '最終面接', '内定'];
 const DEADLINE_ALERT_STORAGE_KEY = 'career-pipeline-deadline-alerts-v1';
+const EVENT_TYPE_STORAGE_KEY = 'career-pipeline-event-types-v1';
 
 const getNotificationPermission = (): NotificationPermission | 'unsupported' => {
   if (typeof window === 'undefined' || !('Notification' in window)) return 'unsupported';
@@ -58,7 +61,48 @@ const getDeadlineAlertKey = (card: JobCard, todayKey: string) => {
 };
 
 const buildDeadlineAlertBody = (cards: JobCard[]) => {
-  return cards.map((card) => `${card.company_name}: ${formatDeadlineLabel(card.deadline)}`).join('\n');
+  return cards.map((card) => `${card.company_name}（${normalizeEventType(card.event_type)}）: ${formatDeadlineLabel(card.deadline)}`).join('\n');
+};
+
+const readEventTypeOverrides = () => {
+  try {
+    const raw = window.localStorage.getItem(EVENT_TYPE_STORAGE_KEY);
+    if (!raw) return {};
+
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+
+    return Object.entries(parsed).reduce<Record<string, JobEventType>>((acc, [id, value]) => {
+      acc[id] = normalizeEventType(typeof value === 'string' ? value : null);
+      return acc;
+    }, {});
+  } catch (error) {
+    console.warn('予定種類の読み込みに失敗しました:', error);
+    return {};
+  }
+};
+
+const saveEventTypeOverride = (cardId: number, eventType: JobEventType) => {
+  try {
+    const overrides = readEventTypeOverrides();
+    overrides[String(cardId)] = eventType;
+    window.localStorage.setItem(EVENT_TYPE_STORAGE_KEY, JSON.stringify(overrides));
+  } catch (error) {
+    console.warn('予定種類の保存に失敗しました:', error);
+  }
+};
+
+const applyEventTypeDefaults = (cards: JobCard[]) => {
+  const overrides = readEventTypeOverrides();
+  return cards.map((card) => ({
+    ...card,
+    event_type: normalizeEventType(overrides[String(card.id)] || card.event_type),
+  }));
+};
+
+const getDaysUntilWeekEnd = () => {
+  const day = new Date().getDay();
+  return day === 0 ? 0 : 7 - day;
 };
 
 // --- ① ドラッグ用カード ---
@@ -80,7 +124,7 @@ function DraggableCard({ card, onDelete, onEdit, onArchive }: { card: JobCard; o
     <div ref={setNodeRef} style={style} {...listeners} {...attributes}>
       <Card 
         companyName={card.company_name} platform={card.platform} status={card.status} 
-        url={card.url || undefined} deadline={card.deadline || undefined} 
+        eventType={card.event_type} url={card.url || undefined} deadline={card.deadline || undefined} 
         onDelete={() => onDelete(card.id)} onEdit={() => onEdit(card)} onArchive={() => onArchive(card.id)}
       />
     </div>
@@ -132,6 +176,45 @@ function SortableColumn({ column, cards, onDeleteCard, onEditCard, onDeleteColum
   );
 }
 
+function ScheduleOverview({ groups, onEditCard }: { groups: { title: string; accent: string; emptyText: string; cards: JobCard[] }[]; onEditCard: (card: JobCard) => void; }) {
+  return (
+    <section style={{ maxWidth: '1100px', margin: '24px auto 0', padding: '0 16px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '12px' }}>
+        {groups.map((group) => (
+          <div key={group.title} style={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '16px', textAlign: 'left', borderTop: `4px solid ${group.accent}`, minHeight: '150px', boxSizing: 'border-box' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+              <h2 style={{ margin: 0, fontSize: '16px', fontWeight: '900', color: '#0f172a' }}>{group.title}</h2>
+              <span style={{ fontSize: '12px', fontWeight: '800', color: '#64748b', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '999px', padding: '3px 10px' }}>{group.cards.length}</span>
+            </div>
+
+            {group.cards.length === 0 ? (
+              <p style={{ color: '#94a3b8', fontSize: '13px', fontWeight: '700', margin: 0 }}>{group.emptyText}</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {group.cards.map((card) => {
+                  const eventType = normalizeEventType(card.event_type);
+                  const eventColor = getEventTypeColor(eventType);
+
+                  return (
+                    <button key={card.id} onClick={() => onEditCard(card)} style={{ width: '100%', display: 'grid', gap: '7px', textAlign: 'left', backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '10px', cursor: 'pointer', color: '#0f172a' }}>
+                      <span style={{ fontSize: '13px', fontWeight: '900', lineHeight: '1.35', overflowWrap: 'anywhere' }}>{card.company_name}</span>
+                      <span style={{ fontSize: '12px', color: '#64748b', fontWeight: '800' }}>{formatDeadlineLabel(card.deadline)}</span>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                        <span style={{ backgroundColor: eventColor.bg, color: eventColor.text, border: `1px solid ${eventColor.border}`, borderRadius: '999px', padding: '2px 8px', fontSize: '11px', fontWeight: '900' }}>{eventType}</span>
+                        <span style={{ color: '#64748b', fontSize: '11px', fontWeight: '800' }}>{card.status}</span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 // --- ③ メインアプリ ---
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -166,7 +249,7 @@ export default function App() {
       if (cols) setColumns(cols.map((c: { name: string }) => c.name));
 
       const { data: crds } = await supabase.from('job_cards').select('*');
-      if (crds) setCards(crds as JobCard[]);
+      if (crds) setCards(applyEventTypeDefaults(crds as JobCard[]));
     } catch (err: any) {
       console.error(err);
     }
@@ -242,12 +325,15 @@ export default function App() {
     const newCard: JobCard = { 
       id: Date.now(), company_name: newCompany, status: columns[0], 
       platform: filterPlatform !== 'All' ? filterPlatform : 'LabBase', 
-      memo: '', url: '', deadline: null, is_archived: false,
-      // @ts-ignore
-      user_id: session.user.id 
+      memo: '', url: '', deadline: null, is_archived: false, event_type: DEFAULT_EVENT_TYPE,
     };
-    const { error } = await supabase.from('job_cards').insert([newCard]);
-    if (!error) { setCards([...cards, newCard]); setNewCompany(''); }
+    const newCardForSupabase = {
+      id: newCard.id, company_name: newCard.company_name, status: newCard.status,
+      platform: newCard.platform, memo: newCard.memo, url: newCard.url,
+      deadline: newCard.deadline, is_archived: newCard.is_archived, user_id: session.user.id,
+    };
+    const { error } = await supabase.from('job_cards').insert([newCardForSupabase]);
+    if (!error) { saveEventTypeOverride(newCard.id, DEFAULT_EVENT_TYPE); setCards([...cards, newCard]); setNewCompany(''); }
   };
 
   const addColumn = async (e: React.FormEvent) => {
@@ -264,13 +350,18 @@ export default function App() {
 
   const saveEdits = async () => {
     if (!editingCard) return;
+    const eventType = normalizeEventType(editingCard.event_type);
     const { error } = await supabase.from('job_cards').update({
       company_name: editingCard.company_name, platform: editingCard.platform,
       url: editingCard.url, deadline: editingCard.deadline || null, memo: editingCard.memo, is_archived: editingCard.is_archived
     }).eq('id', editingCard.id);
 
     if (!error) {
-      setCards(cards.map((c) => (c.id === editingCard.id ? { ...editingCard, deadline: editingCard.deadline || null } : c)));
+      saveEventTypeOverride(editingCard.id, eventType);
+      supabase.from('job_cards').update({ event_type: eventType }).eq('id', editingCard.id).then(({ error }) => {
+        if (error) console.info('Supabaseにevent_type列がない場合はブラウザ内保存を使います:', error.message);
+      });
+      setCards(cards.map((c) => (c.id === editingCard.id ? { ...editingCard, deadline: editingCard.deadline || null, event_type: eventType } : c)));
       setEditingCard(null);
     }
   };
@@ -299,6 +390,36 @@ export default function App() {
     if (filterPlatform !== 'All' && c.platform !== filterPlatform) return false;
     return true;
   });
+
+  const activeCardsForSchedule = cards.filter((card) => {
+    if (card.is_archived || !card.deadline) return false;
+    if (filterPlatform !== 'All' && card.platform !== filterPlatform) return false;
+    return true;
+  }).sort((a, b) => toDeadlineTimestamp(a.deadline) - toDeadlineTimestamp(b.deadline));
+  const daysUntilWeekEnd = getDaysUntilWeekEnd();
+  const scheduleGroups = [
+    {
+      title: '今日',
+      accent: '#ef4444',
+      emptyText: '今日の予定はありません',
+      cards: activeCardsForSchedule.filter((card) => getCalendarDayDiff(card.deadline) === 0),
+    },
+    {
+      title: '明日',
+      accent: '#f97316',
+      emptyText: '明日の予定はありません',
+      cards: activeCardsForSchedule.filter((card) => getCalendarDayDiff(card.deadline) === 1),
+    },
+    {
+      title: '今週',
+      accent: '#3b82f6',
+      emptyText: '明後日以降の今週の予定はありません',
+      cards: activeCardsForSchedule.filter((card) => {
+        const diff = getCalendarDayDiff(card.deadline);
+        return diff !== null && diff >= 2 && diff <= daysUntilWeekEnd;
+      }),
+    },
+  ];
 
   return (
     // ダークモードの文字色反転を防ぐ
@@ -360,6 +481,8 @@ export default function App() {
         </div>
       )}
 
+      {!showArchived && <ScheduleOverview groups={scheduleGroups} onEditCard={setEditingCard} />}
+
       <main style={{ maxWidth: '1100px', margin: '30px auto', padding: '0 16px' }}>
         <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
           <SortableContext items={columns.map(c => `col-${c}`)} strategy={verticalListSortingStrategy}>
@@ -416,6 +539,11 @@ export default function App() {
                 </select>
               </div>
               <div style={{ flex: '1 1 100%' }}><label style={lS}>URL</label><input value={editingCard.url || ''} onChange={(e) => handleLocalEdit('url', e.target.value)} style={iS} /></div>
+              <div style={{ flex: '1 1 100%' }}><label style={lS}>予定種類</label>
+                <select value={normalizeEventType(editingCard.event_type)} onChange={(e) => handleLocalEdit('event_type', normalizeEventType(e.target.value))} style={iS}>
+                  {EVENT_TYPES.map(type => <option key={type} value={type}>{type}</option>)}
+                </select>
+              </div>
               <div style={{ flex: '1 1 100%' }}><label style={lS}>締切日時</label><input type="datetime-local" value={toDatetimeLocalValue(editingCard.deadline)} onChange={(e) => handleLocalEdit('deadline', e.target.value || null)} style={iS} /></div>
             </div>
 

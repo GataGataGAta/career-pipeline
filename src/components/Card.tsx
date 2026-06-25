@@ -1,10 +1,12 @@
 // src/components/Card.tsx
 import { formatDeadlineLabel, formatRelativeDeadlineLabel, parseDeadline } from '../utils/deadline';
+import { getEventTypeColor, normalizeEventType, type JobEventType } from '../utils/eventTypes';
 
 type CardProps = {
   companyName: string;
   platform: string;
   status: string;
+  eventType?: JobEventType | null;
   url?: string;
   deadline?: string;
   onDelete: () => void;
@@ -12,7 +14,7 @@ type CardProps = {
   onArchive: () => void;
 };
 
-export const Card = ({ companyName, platform, status, url, deadline, onDelete, onEdit, onArchive }: CardProps) => {
+export const Card = ({ companyName, platform, status, eventType, url, deadline, onDelete, onEdit, onArchive }: CardProps) => {
 
   const getDeadlineStyle = () => {
     if (!deadline) return { color: '#64748b', text: '設定なし' };
@@ -48,6 +50,8 @@ export const Card = ({ companyName, platform, status, url, deadline, onDelete, o
 
   const dlStyle = getDeadlineStyle();
   const pColor = getPlatformColors(platform);
+  const normalizedEventType = normalizeEventType(eventType);
+  const eventColor = getEventTypeColor(normalizedEventType);
 
   return (
     <div style={{
@@ -87,6 +91,15 @@ export const Card = ({ companyName, platform, status, url, deadline, onDelete, o
       {/* 締切表示（中央） */}
       <div style={{ fontSize: '13px', color: dlStyle.color, fontWeight: 'bold', lineHeight: '1.5', overflowWrap: 'anywhere' }}>
         {dlStyle.text}
+      </div>
+
+      <div>
+        <span style={{
+          backgroundColor: eventColor.bg, color: eventColor.text, border: `1px solid ${eventColor.border}`,
+          padding: '5px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: '800'
+        }}>
+          {normalizedEventType}
+        </span>
       </div>
 
       {/* ステータスタグ（中央） */}

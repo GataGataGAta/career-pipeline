@@ -1,73 +1,113 @@
-# React + TypeScript + Vite
+# Career Pipeline
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+就活で応募中の企業、選考ステップ、締切、面接予定、説明会予定、メモをまとめて管理するための React + TypeScript + Vite アプリです。
 
-Currently, two official plugins are available:
+## 主な機能
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- メールアドレスとパスワードによるログイン
+- 企業カードの追加、編集、削除、アーカイブ
+- 選考ステップごとのカード管理
+- カードのドラッグ移動によるステータス変更
+- 選考ステップの追加、並び替え、削除
+- 媒体別フィルター
+- 締切日時の登録
+- 予定種類の管理
+  - 締切
+  - 面接
+  - 説明会
+  - 返信期限
+  - その他
+- 今日、明日、今週の予定一覧
+- 前日予定の通知
+- Markdown 対応メモ
 
-## React Compiler
+## ローカルで動かす
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+依存関係をインストールします。
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+開発サーバーを起動します。
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run dev
 ```
+
+起動後、ブラウザで以下を開きます。
+
+```text
+http://127.0.0.1:5173/
+```
+
+ポートを明示したい場合は、次のように起動できます。
+
+```bash
+npm run dev -- --host 127.0.0.1 --port 5173
+```
+
+## 環境変数
+
+Supabase 接続用に `.env` を用意します。
+
+```env
+VITE_SUPABASE_URL=your_supabase_project_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
+
+`.env` を変更した後は、開発サーバーを再起動してください。
+
+## 使い方
+
+1. ログインまたは新規登録します。
+2. `企業を追加...` に企業名を入力してカードを追加します。
+3. カードをドラッグして、選考ステップ間を移動します。
+4. `メモ` ボタンから企業名、媒体、URL、予定種類、締切日時、メモを編集します。
+5. 今日、明日、今週の予定欄から直近の予定を確認します。
+6. 不要になったカードはアーカイブ、完全に不要なカードは削除します。
+
+## 通知について
+
+ヘッダーの `通知を許可` を押すと、ブラウザ通知を使えるようになります。
+
+前日に予定があるカードは、アプリ起動中に通知されます。同じカード、同じ締切日時については、同じ日に何度も通知しないようにブラウザ内に通知履歴を保存しています。
+
+ブラウザ通知が許可されていない場合は、アプリを開いているときに通常のアラートで通知します。
+
+## Supabase のデータについて
+
+このアプリは主に以下のテーブルを使います。
+
+- `job_cards`
+- `job_columns`
+
+`job_cards.deadline` は時刻まで保存できる型にしておくのがおすすめです。日付だけの型だと、入力した時刻が保存されません。
+
+予定種類は `job_cards.event_type` 列がある場合は Supabase に保存を試みます。列がまだ無い場合でも、アプリはブラウザ内保存で動作します。複数端末で予定種類を同期したい場合は、Supabase 側に `event_type` 列を追加してください。
+
+## よく使うコマンド
+
+```bash
+npm run dev
+```
+
+ローカル開発サーバーを起動します。
+
+```bash
+npm run build
+```
+
+型チェックと本番ビルドを実行します。
+
+```bash
+npm run lint
+```
+
+静的チェックを実行します。
+
+```bash
+npm run preview
+```
+
+ビルド後のアプリをローカルで確認します。
